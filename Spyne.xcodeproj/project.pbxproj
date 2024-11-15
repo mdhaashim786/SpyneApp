@@ -48,9 +48,22 @@
 		A12965692CE4A91F00C1B750 /* SpyneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpyneUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A105DAEE2CE7572D004E730E /* Exceptions for "Spyne" folder in "Spyne" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A129654E2CE4A91E00C1B750 /* Spyne */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A12965512CE4A91E00C1B750 /* Spyne */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A105DAEE2CE7572D004E730E /* Exceptions for "Spyne" folder in "Spyne" target */,
+			);
 			path = Spyne;
 			sourceTree = "<group>";
 		};
@@ -424,6 +437,7 @@
 				DEVELOPMENT_TEAM = 7B7N5JNQ58;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Spyne/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your permission to use the camera";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -455,6 +469,7 @@
 				DEVELOPMENT_TEAM = 7B7N5JNQ58;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Spyne/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your permission to use the camera";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

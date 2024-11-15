@@ -6,18 +6,25 @@
 //
 
 import SwiftUI
+import UserNotifications
 import RealmSwift
 
 struct PhotoView: View {
     var photoId: ObjectId
     @State private var image: Image?
     
+    @ObservedObject var networkSession = NetworkSession()
+    
     @State var photoM: PhotoModel?
+    
+    @State var showAlert: Bool = false
     
     @ObservedResults(PhotoModel.self) var photos
     
     @Environment(\.dismiss) var dismiss
     private let imageSize = CGSize(width: 1024, height: 1024)
+    
+    @State var imageUploadStatus: String = "icloud.and.arrow.up.fill"
     
     var body: some View {
         Group {
@@ -38,15 +45,51 @@ struct PhotoView: View {
             buttonsView()
                 .offset(x: 0, y: -50)
         }
+        .overlay {
+            if networkSession.isUploading {
+                ProgressView()
+                    .controlSize(.regular)
+            }
+        }
+        .overlay(
+            EmptyView()
+                .alert("Photo alredy uploaded", isPresented: $showAlert, actions: {
+                    Button("OK") {
+                        showAlert = false
+                    }
+                })
+            ,
+            alignment: .bottomTrailing
+        )
+        
+        .allowsHitTesting(!networkSession.isUploading)
+        
         .task {
             guard image == nil, let realm = Realm.instance else { return }
             
             self.photoM = realm.objects(PhotoModel.self).filter("id == %d", photoId).first
             
-            if let imageData = photoM?.imageData, let UiImage = UIImage(data: imageData) {
+            if let imageData = photoM?.imageData, let UiImage = UIImage(data: imageData), let status = photoM?.uploadStatus {
                 image = Image(uiImage: UiImage)
+                
+                imageUploadStatus = {
+                    switch status {
+                        
+                    case .inprogress:
+                        "icloud.and.arrow.up.fill"
+                    case .completed:
+                        "checkmark.icloud.fill"
+                    case .failure:
+                        "exclamationmark.icloud.fill"
+                    case .notuploaded:
+                        "icloud.and.arrow.up.fill"
+                    }
+                }()
+                
+                
             }
         }
+        
     }
     
     private func buttonsView() -> some View {
@@ -55,11 +98,15 @@ struct PhotoView: View {
             Button {
                 Task {
                     if let photo = photoM {
-                        NetworkSession.uploadImageFromRealm(photo: photo)
+                        if photo.uploadStatus == .completed {
+                            showAlert = true
+                        } else {
+                            networkSession.uploadRequest(photo: photo)
+                        }
                     }
                 }
             } label: {
-                Label("Upload", systemImage: "icloud.and.arrow.up.fill")
+                Label("Upload", systemImage: imageUploadStatus)
                     .font(.system(size: 24))
             }
             
@@ -101,4 +148,3 @@ struct PhotoView: View {
         .cornerRadius(15)
     }
 }
-

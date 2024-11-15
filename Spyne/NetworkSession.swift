@@ -7,26 +7,9 @@
 
 import Foundation
 import RealmSwift
+import UIKit
 
-class NetworkSession {
-
-    // Helper function to create a multipart/form-data body
-    static func createMultipartBody(data: Data, fileName: String, boundary: String) -> Data {
-        var body = Data()
-        
-        // Append the image data
-        let boundaryPrefix = "--\(boundary)\r\n"
-        body.append(boundaryPrefix.data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/png\r\n\r\n".data(using: .utf8)!)
-        body.append(data)
-        body.append("\r\n".data(using: .utf8)!)
-        
-        // Append the final boundary
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
-        
-        return body
-    }
+class NetworkSession: ObservableObject {
 
     static func getImageFilePath(for photo: PhotoModel) -> URL? {
         // Fetch the image data from Realm
@@ -50,32 +33,66 @@ class NetworkSession {
         }
     }
     
-    static func uploadImageFromRealm(photo: PhotoModel) {
-        guard let fileURL = getImageFilePath(for: photo) else {
-            print("Failed to get file URL")
-            return
-        }
+    @Published var isUploading: Bool = false
+    
+    func convertFormField(named name: String, value: String, using boundary: String) -> String {
+      var fieldString = "--\(boundary)\r\n"
+      fieldString += "Content-Disposition: form-data; name=\"\(name)\"\r\n"
+      fieldString += "\r\n"
+      fieldString += "\(value)\r\n"
+
+      return fieldString
+    } // convertFormField
+
+    func convertFileData(fieldName: String, fileName: String, mimeType: String, fileData: Data, using boundary: String) -> Data {
+      let data = NSMutableData()
+
+      data.appendString("--\(boundary)\r\n")
+      data.appendString("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n")
+      data.appendString("Content-Type: \(mimeType)\r\n\r\n")
+      data.append(fileData)
+      data.appendString("\r\n")
+
+      return data as Data
+    } // convertFileData
+    
+    // File Upload Request
+    func uploadRequest(photo: PhotoModel) {
+        
+        isUploading = true
+        
+        let boundary = "Boundary-\(UUID().uuidString)"
+        
         guard let url = URL(string: "https://www.clippr.ai/api/upload") else {return}
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        
-        let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         
-        // Create the multipart/form-data body
-        var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"\(fileURL.lastPathComponent)\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/png\r\n\r\n".data(using: .utf8)!)
+        let httpBody = NSMutableData()
+
+        httpBody.appendString(convertFormField(named: "image", value: "", using: boundary))
         
-        if let imageData = try? Data(contentsOf: fileURL) {
-            body.append(imageData)
-        }
-        body.append("\r\n".data(using: .utf8)!)
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        guard let imageData = UIImage(data: photo.imageData)?.jpegData(compressionQuality: 1.0) else {return}
         
-        let session = URLSession.shared
-        let task = session.uploadTask(with: request, from: body) { data, response, error in
+        
+        httpBody.append(convertFileData(fieldName: "image",
+                                        fileName: "\(photo.imageName).png",
+                                        mimeType: "image/png",
+                                        fileData: imageData,
+                                        using: boundary))
+            
+        
+        
+        httpBody.appendString("--\(boundary)--")
+
+        request.httpBody = httpBody as Data
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+          // Handle the response here
+            guard let data = data, error == nil else { return }
+            let dataString = String(NSString(data: data, encoding: String.Encoding.utf8.rawValue) ?? "")
+
             if let error = error {
                 print("Upload failed with error: \(error.localizedDescription)")
                 return
@@ -83,16 +100,56 @@ class NetworkSession {
             
             if let httpResponse = response as? HTTPURLResponse {
                 print("Upload completed with status code: \(httpResponse.statusCode)")
+                if httpResponse.statusCode == 200 {
+                    Task { @MainActor in
+                        if let realm = photo.realm {
+                            do {
+                                try realm.write {
+                                    photo.uploadStatus = .completed
+                                }
+                            } catch {
+                                print("Failed to update photo: \(error.localizedDescription)")
+                            }
+                            
+                        }
+                    }
+                }
+                else {
+                    Task { @MainActor in
+                        if let realm = photo.realm {
+                            do {
+                                try realm.write {
+                                    photo.uploadStatus = .failure
+                                }
+                            } catch {
+                                print("Failed to update photo: \(error.localizedDescription)")
+                            }
+                            
+                        }
+                    }
+                }
             }
             
-            if let data = data, let responseString = String(data: data, encoding: .utf8) {
+            if let responseString = String(data: data, encoding: .utf8) {
                 print("Server response: \(responseString)")
             }
+            
         }
         
         task.resume()
-    }
+        isUploading = false
+        
+    } // uploadRequest
 
 
 
 }
+
+extension NSMutableData {
+  func appendString(_ string: String) {
+    if let data = string.data(using: .utf8) {
+      self.append(data)
+    }
+  }
+}
+

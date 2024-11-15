@@ -72,12 +72,13 @@ struct PhotoCollectionView: View {
                         .offset(x: -4, y: -4)
                 case .inprogress:
                     ProgressView()
+                        .controlSize(.small)
                 case .completed:
                     Image(systemName: "checkmark.icloud.fill")
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 1)
                         .font(.callout)
-                        .offset(x: -4, y: 4)
+                        .offset(x: -4, y: -4)
                 case .failure:
                     Image(systemName: "exclamationmark.icloud.fill")
                         .foregroundColor(.white)
